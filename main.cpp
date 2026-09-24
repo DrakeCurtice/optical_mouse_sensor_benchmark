@@ -1,10 +1,33 @@
 #include "BenchmarkApp.h"
 #include "BenchmarkConfig.h"
+#include "HidInspector.h"
+
+#include <iostream>
+#include <string>
 
 int main(int argc, char* argv[])
 {
-    const BenchmarkConfig config =
-        parseBenchmarkArguments(argc, argv);
+
+    if (argc >= 2)
+    {
+        const std::string firstArgument = argv[1];
+
+        if (firstArgument == "--inspect")
+        {
+            if (argc != 2)
+            {
+                std::cerr
+                    << "--inspect does not take more arguments.\n";
+                return 1;
+            }
+
+            return runHidInspector();
+        }
+    }
+
+
+
+    const BenchmarkConfig config = parseBenchmarkArguments(argc, argv);
 
     BenchmarkApp app(config);
     return app.run();

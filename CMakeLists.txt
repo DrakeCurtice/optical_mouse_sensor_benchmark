@@ -9,17 +9,20 @@ add_executable(mouse_benchmark
     BenchmarkAnalyzer.cpp
     RawInputCapture.cpp
     TcpClient.cpp
+    HidInspector.cpp
 )
 
-target_compile_features(mouse_benchmark PRIVATE cxx_std_17)
-
-target_compile_definitions(mouse_benchmark PRIVATE
-    WIN32_LEAN_AND_MEAN
-    NOMINMAX
+target_compile_features(
+    mouse_benchmark
+    PRIVATE
+    cxx_std_17
 )
 
-target_link_libraries(mouse_benchmark PRIVATE
+target_link_libraries(
+    mouse_benchmark
+    PRIVATE
     ws2_32
     user32
     gdi32
+    hid
 )
