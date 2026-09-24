@@ -1,0 +1,28 @@
+# CMake build output
+build/
+out/
+cmake-build-*/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Compiled files
+*.exe
+*.obj
+*.pdb
+*.ilk
+
+# Python backend
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Secrets
+.env
+
+# Misc
+.DS_Store
+Thumbs.db
