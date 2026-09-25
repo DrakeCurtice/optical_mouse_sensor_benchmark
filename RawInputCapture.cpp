@@ -59,6 +59,11 @@ bool RawInputCapture::run()
             MWMO_INPUTAVAILABLE
         );
 
+        // MSG is part of windows message queue structure
+        // hwnd = benchmark window
+        // message = WM_INPUT
+        // other stuff like wParam, etc.
+
         MSG message{};
 
         // PM_REMOVE means to remove from the queue and continue getting messages untul queue is empty
@@ -87,22 +92,39 @@ bool RawInputCapture::run()
 
         // Returns in Ticks, we have a TicksToSeconds method. 
 
-        while (PeekMessageW(
-            &message,
+        // This is my message loop!!!
+        while (PeekMessageW( // is there a messsage waiting? if yes then copy it into my message variable and remove it from the queue
+            &message, // now my message variable = WM_INPUT and queue empty.
             nullptr,
             0,
             0,
             PM_REMOVE))
         {
+            // message.hwnd, mesage.message message.wParam, message.lParam
             if (message.message == WM_QUIT)
             {
                 running = false;
                 break;
             }
 
-            TranslateMessage(&message);
+            TranslateMessage(&message); // what are these doing????
+            // Windows, send this message to the window procedure belonging to message.hwnd
+            // Meaning... Send to our window!
             DispatchMessageW(&message);
         }
+
+        // is the message we get of new latest relational x and y movement a total displcaement or total moveemtns
+        // like if i werte to in 1 ms or less move left 300 counts, and move right 2 counts, would it show up 302 or 298
+        // and if its 298 when i expect it to be, then how can we accurately calculate inches per second????
+        // because inches per second should just be absolute value of every message's counts/dpi value
+        // so if we get 10000 messages with different counts inside and a constant dpi it should be average or median of all the
+        // absolute value of counts x and y to find total displacement. but even if so, how would it not miss me overlapping?
+        // what if in 1 ms i moved super fast to the left 300 counts then to the right back to where i was before 300 counts.
+        // it would report 0 which is not true, in fact the real answer is 600 here.
+        //
+        //
+        //
+        //
 
         LARGE_INTEGER now{};
 
@@ -203,9 +225,10 @@ LRESULT RawInputCapture::handleMessage(
 {
     switch (message)
     {
+        // Capture Raw Input for this window
         case WM_INPUT:
             captureInput(
-                reinterpret_cast<HRAWINPUT>(lParam)
+                reinterpret_cast<HRAWINPUT>(lParam) // For WM_INPUT message, lParam is HRAWINPUT, which is identifier to this particular Raw Input record by Windows
             );
 
             // Required cleanup path for foreground raw input.
@@ -302,17 +325,19 @@ bool RawInputCapture::registerMouse()
 
 void RawInputCapture::captureInput(HRAWINPUT rawInputHandle)
 {
+
+    // We have a handle identifying some Windows Raw Input record, but we don't have dx or dy yet.
     // Timestamp as early as practical in our application-level handler.
     LARGE_INTEGER timestamp{};
     QueryPerformanceCounter(&timestamp);
 
     UINT size = 0;
 
-    if (GetRawInputData(
-        rawInputHandle,
-        RID_INPUT,
-        nullptr,
-        &size,
+    if (GetRawInputData( // GETS THE dx AND dy VALUES
+        rawInputHandle, // I want this specific Raw Input record
+        RID_INPUT, // Give me entire Raw Input record not just its header
+        nullptr, // Windows, do not copy the record pls
+        &size, // Give Windows the address of our size variable to maybe update size. RAWINPUT can be different sizes like mouse, keyboard, other HID
         sizeof(RAWINPUTHEADER)) != 0)
     {
         return;
@@ -322,7 +347,8 @@ void RawInputCapture::captureInput(HRAWINPUT rawInputHandle)
     {
         return;
     }
-
+    
+    // rawInputButter_ is our our dynamicly sized vector that can grow if we need more space
     if (rawInputBuffer_.size() < size)
     {
         rawInputBuffer_.resize(size);
@@ -331,7 +357,7 @@ void RawInputCapture::captureInput(HRAWINPUT rawInputHandle)
     const UINT bytesRead = GetRawInputData(
         rawInputHandle,
         RID_INPUT,
-        rawInputBuffer_.data(),
+        rawInputBuffer_.data(), // Store RAWINPUT into our rawInputBuffer. RAWINPUT is made up of RAWINPUTHEADER bytes and RAWMOUSE bytes for a mouse event
         &size,
         sizeof(RAWINPUTHEADER)
     );
@@ -341,11 +367,20 @@ void RawInputCapture::captureInput(HRAWINPUT rawInputHandle)
         return;
     }
 
+    // RAWINPUT =
+    // RAWINPUTHEADER header;
+    // {
+        // RAWMOUSE mouse;;
+        // RAWKEYBOARD keyboard;
+        // RAWHID hid;
+    // } data;
+
     const RAWINPUT* input =
-        reinterpret_cast<const RAWINPUT*>(
+        reinterpret_cast<const RAWINPUT*>( // Convert vector defined as std::vector<BYTE> to RAWINPUT type
             rawInputBuffer_.data()
         );
-
+    
+    // SKIP all non-mice devices
     if (input->header.dwType != RIM_TYPEMOUSE)
     {
         return;
@@ -372,16 +407,17 @@ void RawInputCapture::captureInput(HRAWINPUT rawInputHandle)
 
     MouseSample sample;
     sample.ticks = timestamp.QuadPart;
-    sample.dx = mouse.lLastX;
-    sample.dy = mouse.lLastY;
+    sample.dx = mouse.lLastX; // IMPORTANT X VALUE
+    sample.dy = mouse.lLastY; // IMPORTANT Y VALUE
     sample.mouseFlags = mouse.usFlags;
     sample.buttonFlags = mouse.usButtonFlags;
     sample.noCoalesce =
         (mouse.usFlags & MOUSE_MOVE_NOCOALESCE) != 0;
 
-    samples_.push_back(sample);
+    samples_.push_back(sample); // Add our mouse data sample to our vector of samples_
 }
 
+// Print out some text to our blank window in foreground which helps us capture our mouse input
 void RawInputCapture::paintWindow(HWND hwnd)
 {
     PAINTSTRUCT paint{};

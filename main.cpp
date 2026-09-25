@@ -25,8 +25,6 @@ int main(int argc, char* argv[])
         }
     }
 
-
-
     const BenchmarkConfig config = parseBenchmarkArguments(argc, argv);
 
     BenchmarkApp app(config);
